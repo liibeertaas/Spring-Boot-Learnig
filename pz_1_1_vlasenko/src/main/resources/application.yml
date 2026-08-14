@@ -1,0 +1,23 @@
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${SPT_EMAIL} # Пошта, З ЯКОЇ йде відправка
+    password: ${SPT_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+app:
+  google:
+    # ID береться з посилання на таблицю: docs.google.com/spreadsheets/d/<ОСЬ_ЦЕЙ_ID>/edit
+    spreadsheet-id: "1HI8zZk__bJzvJ3rpWM0pMazOVeRAs_ZO61CRjbYEcTw"
+    range: "Аркуш1!A:M" # Назва вашого аркуша внизу зліва і діапазон колонок
+  report:
+    cron: "*/45 * * * * *" # Запускати щодня о 08:00:00
+    email-to: "vlasenkor274@gmail.com"
