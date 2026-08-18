@@ -105,7 +105,20 @@ GET /reports/sales.pdf?month=2026-08
 GET /reports/sales.xlsx?from=2026-06-01&to=2026-08-31
 POST /reports/send?month=2026-08
 ```
-
+```
+- GET /reports/sales.pdf?month=2026-08 — PDF за місяць.
+- GET /reports/sales.xlsx?from=2026-01-01&to=2026-08-31 — Excel за діапазон.
+- POST /reports/send?month=2026-08 — надіслати звіт на email (з report.recipients).
+```
+```
+{
+  "manager": "Іван Петренко",
+  "product": "Ноутбук",
+  "amount": 15999.99,
+  "region": "KYIV",
+  "date": "2026-08-17"
+}
+```
 ## Автоматична щомісячна розсилка
 
 `ReportScheduler` шле звіт за **попередній** місяць 1-го числа о 03:00
