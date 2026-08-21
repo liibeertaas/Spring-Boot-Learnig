@@ -1,0 +1,8 @@
+.git
+.gitignore
+.env
+*.pem
+*.key
+target/
+build/
+*.class
