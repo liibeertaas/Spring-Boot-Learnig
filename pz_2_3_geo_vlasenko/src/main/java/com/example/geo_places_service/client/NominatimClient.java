@@ -39,6 +39,7 @@ public class NominatimClient {
                             .queryParam("q", address)
                             .queryParam("format", "json")
                             .queryParam("limit", 1)
+                            .queryParam("accept-language", "uk")
                             .build())
                     .retrieve()
                     .body(new org.springframework.core.ParameterizedTypeReference<List<NominatimSearchResult>>() {
@@ -65,6 +66,7 @@ public class NominatimClient {
                             .queryParam("lat", latitude)
                             .queryParam("lon", longitude)
                             .queryParam("format", "json")
+                            .queryParam("accept-language", "uk")
                             .build())
                     .retrieve()
                     .body(NominatimReverseResult.class);

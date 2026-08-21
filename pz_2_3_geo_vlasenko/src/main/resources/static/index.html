@@ -53,7 +53,7 @@
   .nearby-panel { grid-column: 1; grid-row: 2; }
   .map-panel { grid-column: 2; grid-row: 1; padding: 0; overflow: hidden; }
   .list-panel { grid-column: 2; grid-row: 2; }
-  #map { height: 420px; width: 100%; border-radius: 10px; }
+  #map { height: 640px; width: 100%; border-radius: 10px; background: var(--panel-2); }
   h2 { font-size: 15px; margin: 0 0 12px; color: var(--text); }
   label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
   input, select {
@@ -138,7 +138,7 @@
       <div class="field-error" data-for="name"></div>
 
       <label for="address">Адреса / вулиця</label>
-      <input id="address" required maxlength="500" placeholder="Rynok Square 1, Lviv">
+      <input id="address" required maxlength="500" placeholder="вулиця Хрещатик 1, Київ">
       <div class="geo-status" id="geoStatus"></div>
       <div class="field-error" data-for="address"></div>
 
@@ -249,11 +249,23 @@
   let geocodeSeq = 0; // захист від "гонки" застарілих відповідей геокодування
 
   // ---------- Мапа ----------
-  const map = L.map('map').setView([50.4501, 30.5234], 6); // Київ за замовчуванням
+  const map = L.map('map', { maxZoom: 19, minZoom: 3 }).setView([50.4501, 30.5234], 6); // Київ за замовчуванням
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors',
-    maxZoom: 19
+    maxZoom: 19,
+    minZoom: 3
   }).addTo(map);
+
+  // Leaflet рахує розмір контейнера в момент ініціалізації; у CSS-grid/flex layout
+  // цей розмір інколи ще не фінальний (шрифти/скролбар підвантажуються пізніше),
+  // через що частина тайлів "губиться" — особливо помітно після зуму.
+  // invalidateSize() примушує Leaflet перерахувати розмір і дотягнути тайли.
+  window.addEventListener('load', () => map.invalidateSize());
+  window.addEventListener('resize', () => map.invalidateSize());
+  setTimeout(() => map.invalidateSize(), 300);
+  if (window.ResizeObserver) {
+    new ResizeObserver(() => map.invalidateSize()).observe(document.getElementById('map'));
+  }
 
   const formMarker = L.marker([0, 0], { draggable: true }).addTo(map);
   formMarker.setOpacity(0);
@@ -352,7 +364,7 @@
     } catch (err) {
       if (mySeq !== geocodeSeq) return;
       if (err.status === 404) {
-        setGeoStatus('Адресу не знайдено — вкажіть координати вручну або клікніть по мапі.', 'error');
+        setGeoStatus('Адресу не знайдено. Спробуйте додати місто/країну (напр. «вулиця Хрещатик, Київ») або клікніть по мапі.', 'error');
       } else if (err.status === 503) {
         setGeoStatus('Гео-сервіс тимчасово недоступний. Координати можна ввести вручну.', 'error');
       } else {
@@ -366,7 +378,12 @@
     else setGeoStatus('', '');
   }, 700);
 
-  qs('address').addEventListener('input', (e) => debouncedGeocode(e.target.value));
+  qs('address').addEventListener('input', (e) => {
+    // Стара помилка/успіх з попереднього сабміту не мають "висіти" поки людина
+    // вже виправляє адресу — інакше здається, що нова спроба теж провалилась.
+    showAlert('', '');
+    debouncedGeocode(e.target.value);
+  });
 
   async function reverseFillAddress(lat, lon) {
     try {
