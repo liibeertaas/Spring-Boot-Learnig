@@ -1,0 +1,173 @@
+### Демонстрація CRUD + GlobalExceptionHandler (ПЗ-1)
+### Відкривається в IntelliJ IDEA як HTTP Client (кнопка ▶ біля кожного запиту).
+### Порядок виконання зверху вниз — id зі створеного місця підхоплюється автоматично.
+
+@baseUrl = http://localhost:8080
+
+### 1. Створити місце без координат (адреса-нісенітниця -> geocodingWarning, але 201, не 500)
+# @name createPlace
+POST {{baseUrl}}/api/places
+Content-Type: application/json
+
+{
+  "name": "Тестове місце",
+  "address": "Rivne",
+  "category": "test"
+}
+
+> {%
+    client.test("201 Created", function() {
+        client.assert(response.status === 201, "очікував 201, отримав " + response.status);
+    });
+    client.global.set("placeId", response.body.id);
+%}
+
+### 2. GET по id (щойно створене місце)
+GET {{baseUrl}}/api/places/{{placeId}}
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "очікував 200, отримав " + response.status);
+    });
+%}
+
+### 3. GET список місць
+GET {{baseUrl}}/api/places
+
+> {%
+    client.test("200 OK", function() {
+        client.assert(response.status === 200, "очікував 200, отримав " + response.status);
+    });
+%}
+
+### 4. DELETE місце
+DELETE {{baseUrl}}/api/places/{{placeId}}
+
+> {%
+    client.test("204 No Content", function() {
+        client.assert(response.status === 204, "очікував 204, отримав " + response.status);
+    });
+%}
+
+### 5. GlobalExceptionHandler -> 404 (того самого id вже немає)
+GET {{baseUrl}}/api/places/{{placeId}}
+
+> {%
+    client.test("404 Not Found (не голий стектрейс)", function() {
+        client.assert(response.status === 404, "очікував 404, отримав " + response.status);
+        client.assert(response.body.status === 404, "тіло помилки без status");
+    });
+%}
+
+### 6. GlobalExceptionHandler -> 400 (невалідне тіло, @Valid: порожні name/address)
+POST {{baseUrl}}/api/places
+Content-Type: application/json
+
+{
+  "name": "",
+  "address": ""
+}
+
+> {%
+    client.test("400 Bad Request з fieldErrors", function() {
+        client.assert(response.status === 400, "очікував 400, отримав " + response.status);
+        client.assert(response.body.fieldErrors.name !== undefined, "немає fieldErrors.name");
+        client.assert(response.body.fieldErrors.address !== undefined, "немає fieldErrors.address");
+    });
+%}
+
+
+### Демонстрація фільтрів + пошуку поблизу (ПЗ-3)
+### Координати вказані вручну (щоб не залежати від Nominatim під час показу):
+### - Кав'ярня "Ринок" і Музей — поруч у Львові (~0.2 км одне від одного)
+### - Кав'ярня "Київ" — за сотні км, навмисно поза радіусом 5 км
+
+### 7. Створити кав'ярню у Львові (Ринок)
+# @name createCafeLviv
+POST {{baseUrl}}/api/places
+Content-Type: application/json
+
+{
+  "name": "Кав'ярня Ринок",
+  "address": "Rynok Square 1, Lviv",
+  "category": "cafe",
+  "latitude": 49.8397,
+  "longitude": 24.0297
+}
+
+> {%
+    client.test("201 Created", function() {
+        client.assert(response.status === 201, "очікував 201, отримав " + response.status);
+    });
+%}
+
+### 8. Створити музей у Львові (поруч, ~0.2 км, інша категорія)
+POST {{baseUrl}}/api/places
+Content-Type: application/json
+
+{
+  "name": "Музей історії",
+  "address": "Rynok Square 6, Lviv",
+  "category": "museum",
+  "latitude": 49.8410,
+  "longitude": 24.0316
+}
+
+> {%
+    client.test("201 Created", function() {
+        client.assert(response.status === 201, "очікував 201, отримав " + response.status);
+    });
+%}
+
+### 9. Створити кав'ярню в Києві (та сама категорія, але поза радіусом 5 км)
+POST {{baseUrl}}/api/places
+Content-Type: application/json
+
+{
+  "name": "Бар ",
+  "address": "Andria Melnuka 8, Rivne",
+  "category": "bar",
+  "latitude": 50.4501,
+  "longitude": 30.5234
+}
+
+> {%
+    client.test("201 Created", function() {
+        client.assert(response.status === 201, "очікував 201, отримав " + response.status);
+    });
+%}
+
+### 10. Фільтр за категорією: GET /api/places?category=cafe
+### Очікується 2 місця (обидві кав'ярні — Львів і Київ, категорія не дивиться на відстань)
+GET {{baseUrl}}/api/places?category=cafe
+
+> {%
+    client.test("200 OK, 2 кав'ярні", function() {
+        client.assert(response.status === 200, "очікував 200, отримав " + response.status);
+        client.assert(response.body.totalElements === 2, "очікував 2 елементи, отримав " + response.body.totalElements);
+    });
+%}
+
+### 11. Пошук поблизу без фільтра категорії: GET /api/places/nearby?radiusKm=5
+### Очікується 2 місця (кав'ярня + музей у Львові), Київ відсіється радіусом
+GET {{baseUrl}}/api/places/nearby?lat=49.8397&lon=24.0297&radiusKm=5
+
+> {%
+    client.test("200 OK, 2 місця в радіусі 5 км", function() {
+        client.assert(response.status === 200, "очікував 200, отримав " + response.status);
+        client.assert(response.body.totalElements === 2, "очікував 2 елементи, отримав " + response.body.totalElements);
+    });
+%}
+
+### 12. Пошук поблизу + фільтр категорії: GET /api/places/nearby?radiusKm=5&category=cafe
+### Очікується 1 місце (тільки Кав'ярня Ринок — музей відсіється категорією, Київ - радіусом)
+GET {{baseUrl}}/api/places/nearby?lat=49.8397&lon=24.0297&radiusKm=5&category=cafe
+
+> {%
+    client.test("200 OK, 1 кав'ярня в радіусі 5 км", function() {
+        client.assert(response.status === 200, "очікував 200, отримав " + response.status);
+        client.assert(response.body.totalElements === 1, "очікував 1 елемент, отримав " + response.body.totalElements);
+        client.assert(response.body.content[0].category === "cafe", "категорія не cafe");
+        client.assert(response.body.content[0].distanceKm < 5, "distanceKm >= 5");
+    });
+%}
