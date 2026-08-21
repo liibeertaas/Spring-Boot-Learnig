@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Мої місця — Geo Places</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+  :root {
+    --bg: #0f1720;
+    --panel: #17212b;
+    --panel-2: #1e2a37;
+    --border: #2b3947;
+    --text: #e6edf3;
+    --muted: #8b9bab;
+    --accent: #4da3ff;
+    --accent-2: #35c58f;
+    --danger: #ff6b6b;
+    --warn: #f5b942;
+    font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header span { color: var(--muted); font-size: 13px; }
+  main {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    grid-template-rows: auto auto;
+    gap: 16px;
+    padding: 16px 24px 32px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .form-panel { grid-column: 1; grid-row: 1; }
+  .nearby-panel { grid-column: 1; grid-row: 2; }
+  .map-panel { grid-column: 2; grid-row: 1; padding: 0; overflow: hidden; }
+  .list-panel { grid-column: 2; grid-row: 2; }
+  #map { height: 420px; width: 100%; border-radius: 10px; }
+  h2 { font-size: 15px; margin: 0 0 12px; color: var(--text); }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  input, select {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 14px;
+  }
+  input:focus, select:focus { outline: 1px solid var(--accent); }
+  .row { display: flex; gap: 8px; }
+  .row > div { flex: 1; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #06131f; font-weight: 600; }
+  .btn.danger { color: var(--danger); }
+  .btn.small { padding: 4px 8px; font-size: 12px; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .actions { display: flex; gap: 8px; margin-top: 14px; }
+  .geo-status { font-size: 12px; margin-top: 4px; min-height: 16px; }
+  .geo-status.loading { color: var(--muted); }
+  .geo-status.ok { color: var(--accent-2); }
+  .geo-status.error { color: var(--warn); }
+  .field-error { color: var(--danger); font-size: 12px; margin-top: 3px; }
+  #formAlert { margin-top: 10px; font-size: 13px; }
+  #formAlert.error { color: var(--danger); }
+  #formAlert.ok { color: var(--accent-2); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 11px; }
+  .badge.ok { background: rgba(53,197,143,.15); color: var(--accent-2); }
+  .badge.no { background: rgba(245,185,66,.15); color: var(--warn); }
+  .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filters input, .filters select { width: auto; min-width: 140px; }
+  .pagination { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .row-actions { display: flex; gap: 6px; }
+  .muted { color: var(--muted); }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .nearby-results { margin-top: 12px; max-height: 220px; overflow-y: auto; }
+  .nearby-item { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .nearby-item .dist { color: var(--accent); font-weight: 600; }
+  @media (max-width: 980px) {
+    main { grid-template-columns: 1fr; }
+    .form-panel, .nearby-panel, .map-panel, .list-panel { grid-column: 1; }
+    .map-panel { grid-row: auto; }
+    .list-panel { grid-row: auto; }
+    .nearby-panel { grid-row: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📍 Мої місця</h1>
+  <span>ПЗ-2/3 · geo-places-service · координати підтягуються автоматично при вводі адреси</span>
+</header>
+
+<main>
+  <section class="panel form-panel">
+    <h2 id="formTitle">Нове місце</h2>
+    <form id="placeForm" autocomplete="off">
+      <input type="hidden" id="placeId">
+
+      <label for="name">Назва</label>
+      <input id="name" required maxlength="255" placeholder="Кав'ярня Ринок">
+      <div class="field-error" data-for="name"></div>
+
+      <label for="address">Адреса / вулиця</label>
+      <input id="address" required maxlength="500" placeholder="Rynok Square 1, Lviv">
+      <div class="geo-status" id="geoStatus"></div>
+      <div class="field-error" data-for="address"></div>
+
+      <label for="category">Категорія</label>
+      <input id="category" maxlength="100" placeholder="cafe, museum, bar…">
+      <div class="field-error" data-for="category"></div>
+
+      <div class="row">
+        <div>
+          <label for="latitude">Широта</label>
+          <input id="latitude" type="number" step="any" min="-90" max="90" placeholder="автоматично">
+          <div class="field-error" data-for="latitude"></div>
+        </div>
+        <div>
+          <label for="longitude">Довгота</label>
+          <input id="longitude" type="number" step="any" min="-180" max="180" placeholder="автоматично">
+          <div class="field-error" data-for="longitude"></div>
+        </div>
+      </div>
+      <div class="hint">Можна поправити вручну або клікнути по мапі — координати підставляться і адреса підтягнеться зворотним геокодуванням.</div>
+
+      <div class="actions">
+        <button type="submit" class="btn primary" id="submitBtn">Зберегти</button>
+        <button type="button" class="btn" id="cancelEditBtn" style="display:none">Скасувати редагування</button>
+      </div>
+      <div id="formAlert"></div>
+    </form>
+  </section>
+
+  <section class="panel map-panel">
+    <div id="map"></div>
+  </section>
+
+  <section class="panel nearby-panel">
+    <h2>Пошук поблизу</h2>
+    <div class="row">
+      <div>
+        <label for="nearbyLat">Широта</label>
+        <input id="nearbyLat" type="number" step="any" placeholder="49.8397">
+      </div>
+      <div>
+        <label for="nearbyLon">Довгота</label>
+        <input id="nearbyLon" type="number" step="any" placeholder="24.0297">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="nearbyRadius">Радіус, км</label>
+        <input id="nearbyRadius" type="number" step="any" min="0.01" value="5">
+      </div>
+      <div>
+        <label for="nearbyCategory">Категорія (опційно)</label>
+        <input id="nearbyCategory" placeholder="cafe">
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn" id="myLocationBtn">📍 Моя локація</button>
+      <button type="button" class="btn" id="useMapCenterBtn">Центр мапи</button>
+      <button type="button" class="btn primary" id="nearbySearchBtn">Знайти</button>
+    </div>
+    <div class="nearby-results" id="nearbyResults"></div>
+  </section>
+
+  <section class="panel list-panel">
+    <div class="list-header">
+      <h2 style="margin:0">Список місць</h2>
+    </div>
+    <div class="filters">
+      <input id="filterName" placeholder="Фільтр за назвою…">
+      <input id="filterCategory" placeholder="Фільтр за категорією…">
+      <button class="btn small" id="applyFiltersBtn">Застосувати</button>
+      <button class="btn small" id="clearFiltersBtn">Скинути</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Назва</th>
+          <th>Адреса</th>
+          <th>Категорія</th>
+          <th>Координати</th>
+          <th>Дії</th>
+        </tr>
+      </thead>
+      <tbody id="placesTableBody"></tbody>
+    </table>
+    <div class="pagination">
+      <button class="btn small" id="prevPageBtn">← Назад</button>
+      <span id="pageInfo">—</span>
+      <button class="btn small" id="nextPageBtn">Далі →</button>
+    </div>
+  </section>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(function () {
+  'use strict';
+
+  const API_PLACES = '/api/places';
+  const API_GEOCODE = '/api/geocode';
+
+  // ---------- Стан ----------
+  let currentEditId = null;
+  let page = 0;
+  const pageSize = 10;
+  let filters = { name: '', category: '' };
+  let geocodeSeq = 0; // захист від "гонки" застарілих відповідей геокодування
+
+  // ---------- Мапа ----------
+  const map = L.map('map').setView([50.4501, 30.5234], 6); // Київ за замовчуванням
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 19
+  }).addTo(map);
+
+  const formMarker = L.marker([0, 0], { draggable: true }).addTo(map);
+  formMarker.setOpacity(0);
+  let formMarkerPlaced = false;
+
+  const placesLayer = L.layerGroup().addTo(map);
+
+  function showFormMarker(lat, lon) {
+    formMarker.setLatLng([lat, lon]);
+    formMarker.setOpacity(1);
+    formMarkerPlaced = true;
+  }
+
+  formMarker.on('dragend', async () => {
+    const { lat, lng } = formMarker.getLatLng();
+    document.getElementById('latitude').value = round6(lat);
+    document.getElementById('longitude').value = round6(lng);
+    await reverseFillAddress(lat, lng);
+  });
+
+  map.on('click', async (e) => {
+    const { lat, lng } = e.latlng;
+    document.getElementById('latitude').value = round6(lat);
+    document.getElementById('longitude').value = round6(lng);
+    showFormMarker(lat, lng);
+    await reverseFillAddress(lat, lng);
+  });
+
+  function round6(n) { return Math.round(n * 1e6) / 1e6; }
+
+  // ---------- Утиліти ----------
+  function debounce(fn, ms) {
+    let t;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), ms);
+    };
+  }
+
+  function qs(id) { return document.getElementById(id); }
+
+  async function api(path, options) {
+    const res = await fetch(path, options);
+    let body = null;
+    const text = await res.text();
+    if (text) {
+      try { body = JSON.parse(text); } catch (_) { body = text; }
+    }
+    if (!res.ok) {
+      const err = new Error((body && body.message) || `HTTP ${res.status}`);
+      err.status = res.status;
+      err.body = body;
+      throw err;
+    }
+    return body;
+  }
+
+  function clearFieldErrors() {
+    document.querySelectorAll('.field-error').forEach(el => el.textContent = '');
+  }
+
+  function showFieldErrors(fieldErrors) {
+    clearFieldErrors();
+    if (!fieldErrors) return;
+    Object.entries(fieldErrors).forEach(([field, msg]) => {
+      const el = document.querySelector(`.field-error[data-for="${field}"]`);
+      if (el) el.textContent = msg;
+    });
+  }
+
+  function showAlert(msg, kind) {
+    const el = qs('formAlert');
+    el.textContent = msg || '';
+    el.className = kind || '';
+  }
+
+  // ---------- Live-геокодування адреси ----------
+  const geoStatusEl = qs('geoStatus');
+
+  function setGeoStatus(text, kind) {
+    geoStatusEl.textContent = text;
+    geoStatusEl.className = 'geo-status' + (kind ? ' ' + kind : '');
+  }
+
+  async function geocodeAddress(address) {
+    const mySeq = ++geocodeSeq;
+    setGeoStatus('Шукаю координати…', 'loading');
+    try {
+      const result = await api(`${API_GEOCODE}/forward?address=${encodeURIComponent(address)}`);
+      if (mySeq !== geocodeSeq) return; // прийшла застаріла відповідь — ігноруємо
+      qs('latitude').value = round6(result.latitude);
+      qs('longitude').value = round6(result.longitude);
+      showFormMarker(result.latitude, result.longitude);
+      map.setView([result.latitude, result.longitude], 15);
+      setGeoStatus(`✓ Знайдено: ${result.latitude.toFixed(5)}, ${result.longitude.toFixed(5)}`, 'ok');
+    } catch (err) {
+      if (mySeq !== geocodeSeq) return;
+      if (err.status === 404) {
+        setGeoStatus('Адресу не знайдено — вкажіть координати вручну або клікніть по мапі.', 'error');
+      } else if (err.status === 503) {
+        setGeoStatus('Гео-сервіс тимчасово недоступний. Координати можна ввести вручну.', 'error');
+      } else {
+        setGeoStatus('Не вдалося геокодувати адресу.', 'error');
+      }
+    }
+  }
+
+  const debouncedGeocode = debounce((address) => {
+    if (address && address.trim().length >= 3) geocodeAddress(address.trim());
+    else setGeoStatus('', '');
+  }, 700);
+
+  qs('address').addEventListener('input', (e) => debouncedGeocode(e.target.value));
+
+  async function reverseFillAddress(lat, lon) {
+    try {
+      const result = await api(`${API_GEOCODE}/reverse?lat=${lat}&lon=${lon}`);
+      qs('address').value = result.address;
+      setGeoStatus('✓ Адреса підтягнута за координатами', 'ok');
+    } catch (_) {
+      // не критично: координати вже проставлені, адресу можна ввести вручну
+    }
+  }
+
+  // ---------- Форма (create / update) ----------
+  const form = qs('placeForm');
+
+  function resetForm() {
+    currentEditId = null;
+    form.reset();
+    qs('placeId').value = '';
+    qs('formTitle').textContent = 'Нове місце';
+    qs('submitBtn').textContent = 'Зберегти';
+    qs('cancelEditBtn').style.display = 'none';
+    clearFieldErrors();
+    showAlert('', '');
+    setGeoStatus('', '');
+    formMarker.setOpacity(0);
+    formMarkerPlaced = false;
+  }
+
+  qs('cancelEditBtn').addEventListener('click', resetForm);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearFieldErrors();
+    showAlert('', '');
+
+    const payload = {
+      name: qs('name').value.trim(),
+      address: qs('address').value.trim(),
+      category: qs('category').value.trim() || null,
+      latitude: qs('latitude').value === '' ? null : parseFloat(qs('latitude').value),
+      longitude: qs('longitude').value === '' ? null : parseFloat(qs('longitude').value)
+    };
+
+    try {
+      if (currentEditId) {
+        await api(`${API_PLACES}/${currentEditId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        showAlert('Місце оновлено.', 'ok');
+      } else {
+        const created = await api(API_PLACES, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (created.geocodingWarning) {
+          showAlert(created.geocodingWarning, 'error');
+        } else {
+          showAlert('Місце створено.', 'ok');
+        }
+      }
+      resetFormKeepAlert();
+      await loadPlaces();
+    } catch (err) {
+      if (err.status === 400 && err.body && err.body.fieldErrors) {
+        showFieldErrors(err.body.fieldErrors);
+        showAlert(err.body.message, 'error');
+      } else {
+        showAlert(err.message || 'Помилка збереження.', 'error');
+      }
+    }
+  });
+
+  function resetFormKeepAlert() {
+    const alertText = qs('formAlert').textContent;
+    const alertClass = qs('formAlert').className;
+    currentEditId = null;
+    form.reset();
+    qs('placeId').value = '';
+    qs('formTitle').textContent = 'Нове місце';
+    qs('submitBtn').textContent = 'Зберегти';
+    qs('cancelEditBtn').style.display = 'none';
+    clearFieldErrors();
+    setGeoStatus('', '');
+    formMarker.setOpacity(0);
+    formMarkerPlaced = false;
+    qs('formAlert').textContent = alertText;
+    qs('formAlert').className = alertClass;
+  }
+
+  async function editPlace(id) {
+    try {
+      const place = await api(`${API_PLACES}/${id}`);
+      currentEditId = id;
+      qs('placeId').value = id;
+      qs('name').value = place.name;
+      qs('address').value = place.address;
+      qs('category').value = place.category || '';
+      qs('latitude').value = place.latitude ?? '';
+      qs('longitude').value = place.longitude ?? '';
+      qs('formTitle').textContent = `Редагування: ${place.name}`;
+      qs('submitBtn').textContent = 'Оновити';
+      qs('cancelEditBtn').style.display = 'inline-flex';
+      clearFieldErrors();
+      showAlert('', '');
+      if (place.latitude != null && place.longitude != null) {
+        showFormMarker(place.latitude, place.longitude);
+        map.setView([place.latitude, place.longitude], 15);
+        setGeoStatus(`Поточні координати: ${place.latitude.toFixed(5)}, ${place.longitude.toFixed(5)}`, 'ok');
+      } else {
+        formMarker.setOpacity(0);
+        setGeoStatus('Координат ще немає — введіть адресу заново або клікніть по мапі.', 'error');
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      alert('Не вдалося завантажити місце: ' + err.message);
+    }
+  }
+
+  async function deletePlace(id, name) {
+    if (!confirm(`Видалити "${name}"?`)) return;
+    try {
+      await api(`${API_PLACES}/${id}`, { method: 'DELETE' });
+      if (currentEditId === id) resetForm();
+      await loadPlaces();
+    } catch (err) {
+      alert('Не вдалося видалити: ' + err.message);
+    }
+  }
+
+  async function regeocodePlace(id) {
+    try {
+      await api(`${API_PLACES}/${id}/regeocode`, { method: 'POST' });
+      await loadPlaces();
+    } catch (err) {
+      alert('Не вдалося догеокодувати: ' + err.message);
+    }
+  }
+
+  // ---------- Список + фільтри + пагінація ----------
+  const tbody = qs('placesTableBody');
+
+  async function loadPlaces() {
+    const params = new URLSearchParams({ page: page, size: pageSize });
+    if (filters.category) params.set('category', filters.category);
+    if (filters.name) params.set('name', filters.name);
+
+    try {
+      const data = await api(`${API_PLACES}?${params.toString()}`);
+      renderTable(data.content || []);
+      renderPagination(data);
+      renderMapMarkers(data.content || []);
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="5" class="muted">Помилка завантаження: ${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function renderTable(places) {
+    if (!places.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="muted">Нічого не знайдено.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = places.map(p => `
+      <tr>
+        <td>${escapeHtml(p.name)}</td>
+        <td>${escapeHtml(p.address)}</td>
+        <td>${escapeHtml(p.category || '—')}</td>
+        <td>
+          ${p.geocoded
+            ? `<span class="badge ok">✓ ${p.latitude.toFixed(4)}, ${p.longitude.toFixed(4)}</span>`
+            : `<span class="badge no">без координат</span>`}
+        </td>
+        <td class="row-actions">
+          <button class="btn small" data-action="edit" data-id="${p.id}">Ред.</button>
+          ${!p.geocoded ? `<button class="btn small" data-action="regeocode" data-id="${p.id}">Гео</button>` : ''}
+          <button class="btn small danger" data-action="delete" data-id="${p.id}" data-name="${escapeHtml(p.name)}">Del</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  tbody.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const id = Number(btn.dataset.id);
+    if (btn.dataset.action === 'edit') editPlace(id);
+    else if (btn.dataset.action === 'delete') deletePlace(id, btn.dataset.name);
+    else if (btn.dataset.action === 'regeocode') regeocodePlace(id);
+  });
+
+  function renderPagination(data) {
+    qs('pageInfo').textContent = `Стор. ${data.number + 1} з ${Math.max(data.totalPages, 1)} · всього ${data.totalElements}`;
+    qs('prevPageBtn').disabled = data.first;
+    qs('nextPageBtn').disabled = data.last;
+  }
+
+  qs('prevPageBtn').addEventListener('click', () => { if (page > 0) { page--; loadPlaces(); } });
+  qs('nextPageBtn').addEventListener('click', () => { page++; loadPlaces(); });
+
+  qs('applyFiltersBtn').addEventListener('click', () => {
+    filters.name = qs('filterName').value.trim();
+    filters.category = qs('filterCategory').value.trim();
+    page = 0;
+    loadPlaces();
+  });
+  qs('clearFiltersBtn').addEventListener('click', () => {
+    qs('filterName').value = '';
+    qs('filterCategory').value = '';
+    filters = { name: '', category: '' };
+    page = 0;
+    loadPlaces();
+  });
+
+  function renderMapMarkers(places) {
+    placesLayer.clearLayers();
+    places.filter(p => p.geocoded).forEach(p => {
+      L.marker([p.latitude, p.longitude])
+        .addTo(placesLayer)
+        .bindPopup(`<b>${escapeHtml(p.name)}</b><br>${escapeHtml(p.address)}<br><span class="muted">${escapeHtml(p.category || '')}</span>`);
+    });
+  }
+
+  // ---------- Пошук поблизу ----------
+  let nearbyCircle = null;
+
+  qs('myLocationBtn').addEventListener('click', () => {
+    if (!navigator.geolocation) { alert('Геолокація не підтримується браузером.'); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        qs('nearbyLat').value = round6(pos.coords.latitude);
+        qs('nearbyLon').value = round6(pos.coords.longitude);
+      },
+      () => alert('Не вдалося визначити локацію.')
+    );
+  });
+
+  qs('useMapCenterBtn').addEventListener('click', () => {
+    const c = map.getCenter();
+    qs('nearbyLat').value = round6(c.lat);
+    qs('nearbyLon').value = round6(c.lng);
+  });
+
+  qs('nearbySearchBtn').addEventListener('click', async () => {
+    const lat = parseFloat(qs('nearbyLat').value);
+    const lon = parseFloat(qs('nearbyLon').value);
+    const radiusKm = parseFloat(qs('nearbyRadius').value);
+    const category = qs('nearbyCategory').value.trim();
+    const resultsEl = qs('nearbyResults');
+
+    if (Number.isNaN(lat) || Number.isNaN(lon) || Number.isNaN(radiusKm)) {
+      resultsEl.innerHTML = `<div class="muted">Заповніть широту, довготу і радіус.</div>`;
+      return;
+    }
+
+    const params = new URLSearchParams({ lat, lon, radiusKm, size: 50 });
+    if (category) params.set('category', category);
+
+    try {
+      const data = await api(`${API_PLACES}/nearby?${params.toString()}`);
+      const items = data.content || [];
+      resultsEl.innerHTML = items.length
+        ? items.map(p => `
+            <div class="nearby-item">
+              <span class="dist">${p.distanceKm.toFixed(2)} км</span> — <b>${escapeHtml(p.name)}</b><br>
+              <span class="muted">${escapeHtml(p.address)} ${p.category ? '· ' + escapeHtml(p.category) : ''}</span>
+            </div>
+          `).join('')
+        : `<div class="muted">Нічого не знайдено в радіусі ${radiusKm} км.</div>`;
+
+      if (nearbyCircle) map.removeLayer(nearbyCircle);
+      nearbyCircle = L.circle([lat, lon], { radius: radiusKm * 1000, color: '#4da3ff', fillOpacity: 0.05 }).addTo(map);
+      map.setView([lat, lon], 13);
+    } catch (err) {
+      resultsEl.innerHTML = `<div class="muted">Помилка: ${escapeHtml(err.message)}</div>`;
+    }
+  });
+
+  // ---------- Старт ----------
+  loadPlaces();
+})();
+</script>
+</body>
+</html>
