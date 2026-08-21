@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: geo-places-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-geoplaces}
+      POSTGRES_USER: ${DB_USER:-geo}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-geo}
+    ports:
+      # Хостовий порт 55432, а не 5432 — щоб не конфліктувати з локально
+      # встановленим PostgreSQL-сервісом, якщо він є на машині розробника.
+      - "${DB_PORT:-55432}:5432"
+    volumes:
+      - geo-places-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-geo} -d ${DB_NAME:-geoplaces}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  geo-places-pgdata:

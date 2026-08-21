@@ -1,0 +1,8 @@
+# Оверрайд для тестів: Flyway вимкнено, схему для H2 генерує сам Hibernate (create-drop) —
+# незалежно від prod-міграцій, тести не піднімають Postgres/docker.
+spring:
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: create-drop

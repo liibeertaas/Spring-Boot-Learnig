@@ -1,0 +1,10 @@
+# "Прод"-профіль: PostgreSQL, піднятий через docker-compose.yml (див. корінь проєкту).
+# Запуск: docker compose up -d && ./mvnw spring-boot:run -Dspring-boot.run.profiles=prod
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:55432}/${DB_NAME:geoplaces}
+    username: ${DB_USER:geo}
+    password: ${DB_PASSWORD:geo}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect

@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: geo-places-service
+  profiles:
+    active: dev
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+    hibernate:
+      # Схема керується виключно Flyway-міграціями (db/migration), не Hibernate.
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8080
+
+# Nominatim (OpenStreetMap) — геокодування адрес.
+# Usage Policy Nominatim вимагає власний, розпізнаваний User-Agent.
+# Заміни на власний контакт (email/URL) перед реальним використанням поза навчальними цілями.
+nominatim:
+  base-url: https://nominatim.openstreetmap.org
+  user-agent: "geo-places-service-vlasenko/1.0 (student PZ-3 project)"
+
+logging:
+  level:
+    com.example.geo_places_service: DEBUG
