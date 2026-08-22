@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: ${DB_NAME:-geoplaces}
       POSTGRES_USER: ${DB_USER:-geo}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-geo}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD не задано — додай його в .env}
     ports:
       # Хостовий порт 55432, а не 5432 — щоб не конфліктувати з локально
       # встановленим PostgreSQL-сервісом, якщо він є на машині розробника.
@@ -17,6 +17,33 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    networks:
+      - geo-net
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: geo-places-server
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: postgres        # ім'я сервісу, не localhost — Docker сам резолвить
+      DB_PORT: 5432            # внутрішній порт контейнера, не 55432
+      DB_NAME: ${DB_NAME:-geoplaces}
+      DB_USER: ${DB_USER:-geo}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD не задано — додай його в .env}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - geo-net
+
+networks:
+  geo-net:
+    driver: bridge
 
 volumes:
   geo-places-pgdata:

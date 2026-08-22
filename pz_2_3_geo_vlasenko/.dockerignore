@@ -1,0 +1,6 @@
+.git
+.idea
+.env
+target/
+out/
+*.class
